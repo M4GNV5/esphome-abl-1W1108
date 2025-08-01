@@ -82,6 +82,16 @@ abl_emh1:
 preferences:
   flash_write_interval: 60min
 
+globals:
+  - id: total_s0_ticks
+    type: size_t
+    restore_value: no
+    initial_value: "0"
+  - id: session_s0_ticks
+    type: size_t
+    restore_value: no
+    initial_value: "0"
+
 text_sensor:
   - platform: abl_emh1
     mode:
@@ -111,17 +121,31 @@ sensor:
       name: "Outlet state"
       disabled_by_default: true
       id: outlet_state
+      on_value:
+        lambda: |-
+          if(x != 0xC2)
+            id(session_s0_ticks) = 0;
   - platform: uptime
     name: Uptime Sensor
     id: abl_uptime
     update_interval: 15s
+  - platform: template
+    name: "Total S0 Ticks"
+    lambda: |-
+      return id(total_s0_ticks);
+    update_interval: 10s
+  - platform: template
+    name: "Session S0 Ticks"
+    lambda: |-
+      return id(session_s0_ticks);
+    update_interval: 10s
 
 number:
   - platform: template
     name: "Max Amps"
     id: set_current
     icon: mdi:arrow-oscillating
-    min_value: 3
+    min_value: 6
     max_value: 16
     step: 1
     optimistic: false
@@ -155,3 +179,18 @@ light:
     rmt_channel: 0
     chipset: ws2812
     name: "Light"
+
+binary_sensor:
+  - platform: gpio
+    internal: true
+    name: "S0 Meter"
+    pin:
+      number: GPIO18
+      mode:
+        input: true
+        pullup: true
+    on_release:
+      lambda: |-
+        ESP_LOGD("main", "Energy Meter S0 input on_release");
+        id(total_s0_ticks) += 1;
+        id(session_s0_ticks) += 1;
